@@ -1,12 +1,27 @@
 import hashlib
+import os
 from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad
 
-# Generates the SHA1 authentication key
-auth_password = "cityoffallon_cityhall"
-auth_key = hashlib.sha1(auth_password.encode()).hexdigest()[:16]
-print("SHA1 Auth Key:", auth_key)
 
-# Generates the AES128 privacy key (first 16 bytes of SHA1 hash, this can be changed for different types of AES, i.e 256)
-privacy_password = "cityhall_cof"
-aes_key = hashlib.sha1(privacy_password.encode()).digest()[:16]
-print("AES128 Privacy Key:", aes_key.hex())
+#Function to get an AES-128 key using PBKDF2
+def get_key(password: str, salt: bytes, key_length: int = 16, iterations: int = 100000) -> bytes:
+    return hashlib.pbkdf2_hmac('sha256', password.encode(), salt, iterations, dklen=key_length)
+
+#Function to encrypt using AES-128 CBC mode
+def encrypt_data(plaintext: str, password: str) -> bytes:
+    salt = os.urandom(16) #Generate random salt
+    key = get_key(password, salt, key_length=16) #Give us the AES-128 key
+
+    iv = os.urandom(16) #Generate random IV
+    cipher = AES.new(key, AES.MODE_CBC, iv) #Create the AES cipher in CBC mode
+
+    ciphertext = cipher.encrypt(pad(plaintext.encode(), AES.block_size)) #Encrypt with padding
+    return salt + iv + ciphertext #Gives us the combined salt, IV, and ciphertext
+
+#User Input
+password = 'sample_password' #Used for the encryption
+plaintext = "Sensitive Data to Encrypt"
+
+encrypted_data = encrypt_data(plaintext, password)
+print("Encrypted Data (Hex): ", encrypted_data.hex())
